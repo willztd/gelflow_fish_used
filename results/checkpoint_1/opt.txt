@@ -1,0 +1,17 @@
+------------ Options -------------
+batchSize: 32
+checkpoint: results/checkpoint_1
+epochs: 50
+gamma: 0.5
+lr: 0.01
+manualSeed: 3963
+model_arch: ConvLSTM
+momentum: 0.9
+plot: Train Loss/Valid Loss
+resume: 
+schedule: 20
+test: True
+use_cuda: True
+weight_decay: 0
+workers: 8
+-------------- End ----------------
