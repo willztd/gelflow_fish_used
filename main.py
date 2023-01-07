@@ -40,10 +40,11 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='testset', type=str, help='which dataset to test, testset or trainset')
 
     # Test model
-    parser.add_argument('--checkpoint', default='results/checkpoint_1', type=str, metavar= \
+    parser.add_argument('--checkpoint', default='results/checkpoint_0501', type=str, metavar= \
         'PATH', help='path to save checkpoint (default: checkpoint)')
     parser.add_argument('--test_model', default='model_best.pth.tar', type=str, help='***.pth.tar')
     parser.add_argument('--model_arch', type=str, default='ConvLSTM', help='The model arch you selected')
+    parser.add_argument('--seq_length', default=10, type=int, help='choose dataset path')
 
     opt = parser.parse_args()
 
@@ -117,7 +118,7 @@ if __name__ == '__main__':
 
     ###----------------------------------------------------------
 
-    seq_length = 5
+    seq_length = opt.seq_length
     motion_seq = [np.zeros((xmax-xmin, ymax-ymin),dtype=np.int64) for _x in range(seq_length)]
 
     pred_c_cls = []
