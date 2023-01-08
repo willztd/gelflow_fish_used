@@ -14,6 +14,7 @@ import cv2
 def label_2_velocity(label):
     cos_course = label[:,0]
     sin_course = label[:,1]
+    cos_course = np.clip(cos_course, -1, 1)
     course = np.arccos(cos_course)
     for i in range(len(course)):
         if sin_course[i] < 0:
@@ -40,11 +41,11 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='testset', type=str, help='which dataset to test, testset or trainset')
 
     # Test model
-    parser.add_argument('--checkpoint', default='results/checkpoint_0501', type=str, metavar= \
+    parser.add_argument('--checkpoint', default='results/checkpoint_0702', type=str, metavar= \
         'PATH', help='path to save checkpoint (default: checkpoint)')
     parser.add_argument('--test_model', default='model_best.pth.tar', type=str, help='***.pth.tar')
     parser.add_argument('--model_arch', type=str, default='ConvLSTM', help='The model arch you selected')
-    parser.add_argument('--seq_length', default=10, type=int, help='choose dataset path')
+    parser.add_argument('--seq_length', default=1, type=int, help='choose dataset path')
 
     opt = parser.parse_args()
 
@@ -55,8 +56,10 @@ if __name__ == '__main__':
     cam0.set(4, 720)
     cam0.set(cv2.CAP_PROP_BUFFERSIZE, 2)
 
-    change_x = 15
-    change_y = -25
+    change_x = 0
+    change_y = 0
+    # change_x = 15
+    # change_y = -25
 
     xmin = 590
     xmin += change_x
