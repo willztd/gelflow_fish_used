@@ -1,0 +1,19 @@
+------------ Options -------------
+batchSize: 32
+checkpoint: results/checkpoint_0901
+dataset_path: /home/zhangtiandong/20221222
+epochs: 100
+gamma: 0.5
+lr: 0.01
+manualSeed: 3963
+model_arch: ConvLSTM
+momentum: 0.9
+plot: Train Loss/Valid Loss
+resume: 
+schedule: 20
+seq_length: 1
+test: True
+use_cuda: False
+weight_decay: 0
+workers: 8
+-------------- End ----------------
