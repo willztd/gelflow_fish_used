@@ -53,20 +53,21 @@ if __name__ == '__main__':
     parser.add_argument('--test_model', default='model_best.pth.tar', type=str, help='***.pth.tar')
     parser.add_argument('--model_arch', type=str, default='ConvLSTM', help='The model arch you selected')
     parser.add_argument('--seq_length', default=1, type=int, help='choose dataset path')
+    parser.add_argument('--cam', default=0, type=int, help='choose camera path')
+    parser.add_argument('--changex', default=0, type=int, help='change_x')
+    parser.add_argument('--changey', default=0, type=int, help='change_y')
 
     opt = parser.parse_args()
 
     # Set cameras
-    cam0 = cv2.VideoCapture(2)  # left camera
+    cam0 = cv2.VideoCapture(opt.cam)  # left camera
     cam0.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
     cam0.set(3, 1280)
     cam0.set(4, 720)
     cam0.set(cv2.CAP_PROP_BUFFERSIZE, 2)
 
-    change_x = 0
-    change_y = 0
-    # change_x = 15
-    # change_y = -25
+    change_x = opt.changex
+    change_y = opt.changey
 
     xmin = 590
     xmin += change_x
