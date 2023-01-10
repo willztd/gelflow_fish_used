@@ -142,7 +142,7 @@ if __name__ == '__main__':
 
     # init cam
     ret_val0, img = cam0.read()
-    se = ser.Serial("/dev/ttyTCU0", 115200)
+    se = ser.Serial("/dev/ttyTHS0", 115200)
 
     time.sleep(5)
 
@@ -200,7 +200,7 @@ if __name__ == '__main__':
             input_s = bytes(send_list)
             try:
                 se.write(input_s)
-                # print(input_s)
+                print(input_s)
             except Exception:
                 pass
             course = 0
