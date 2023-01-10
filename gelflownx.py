@@ -21,7 +21,7 @@ def label_2_velocity(label):
         if sin_course[i] < 0:
             course[i] += np.pi
     course = 180 * course / np.pi
-    speed = label[:,2] * (500 - 150) #+150
+    speed = label[:, 2] * (500 - 150) #+150
     velocity = np.c_[course, speed]
     velocity = np.mean(velocity, axis=0)
     return velocity
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     opt = parser.parse_args()
 
     # Set cameras
-    cam0 = cv2.VideoCapture(0)  # left camera
+    cam0 = cv2.VideoCapture(2)  # left camera
     cam0.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
     cam0.set(3, 1280)
     cam0.set(4, 720)
@@ -141,7 +141,7 @@ if __name__ == '__main__':
 
     # init cam
     ret_val0, img = cam0.read()
-    # se = ser.Serial("/dev/ttyTHS0", 9600)
+    se = ser.Serial("/dev/ttyTCU0", 115200)
 
     time.sleep(5)
 
@@ -185,7 +185,7 @@ if __name__ == '__main__':
         time_used = time_end - time_start
         if time_used < 0.05:
             time.sleep(0.05 - time_used)
-        print(time_used, ':', pred_velocity)
+        # print(time_used, ':', pred_velocity)
 
         if course_num > 3:
             course = course / 4
@@ -198,8 +198,8 @@ if __name__ == '__main__':
                 send_list.append(num)
             input_s = bytes(send_list)
             try:
-                # ser.write(input_s)
-                print(input_s)
+                se.write(input_s)
+                # print(input_s)
             except Exception:
                 pass
             course = 0
