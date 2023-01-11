@@ -200,7 +200,7 @@ if __name__ == '__main__':
             input_s = bytes(send_list)
             try:
                 se.write(input_s)
-                print(input_s)
+                # print(input_s)
             except Exception:
                 pass
             course = 0
