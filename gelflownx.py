@@ -133,12 +133,15 @@ if __name__ == '__main__':
     motion_seq = [np.zeros((xmax-xmin, ymax-ymin),dtype=np.int64) for _x in range(seq_length)]
 
     pred_c_cls = []
-    gt_c_cls = []
     pred_s_cls = []
-    gt_s_cls = []
+    eval_path = opt.checkpoint + '/eval'
+    if not os.path.exists(eval_path):
+        os.makedirs(eval_path)
 
     course = 0
-    course_num= 0
+    speed = 0
+    time_num = 0
+    i = 0
 
     # init cam
     ret_val0, img = cam0.read()
@@ -181,15 +184,19 @@ if __name__ == '__main__':
             pred_velocity = label_2_velocity(pred_index)
 
         course += pred_velocity[0]
-        course_num += 1
+        speed += pred_velocity[1]
+        time_num += 1
         time_end = time.time()
         time_used = time_end - time_start
         if time_used < 0.05:
             time.sleep(0.05 - time_used)
         # print(time_used, ':', pred_velocity)
 
-        if course_num > 3:
+        if (time_num % 4) == 0:
             course = course / 4
+            speed = speed / 4
+            pred_c_cls.append(course)
+            pred_s_cls.append(speed)
             print(time.time()-time_start1, ':', course)
             input_s = course_2_hex(course)
             send_list = []
@@ -204,8 +211,14 @@ if __name__ == '__main__':
             except Exception:
                 pass
             course = 0
-            course_num = 0
+            speed = 0
             time_start1 = time.time()
+        if time_num > 500:
+            np.save(eval_path + '/course_error_' + str(i) + '.npy', pred_c_cls)
+            np.save(eval_path + '/speed_error_' + str(i) + '.npy', pred_s_cls)
+            print("save as ", '/course_error_' + str(i) )
+            time_num = 0
+            i += 1
 
     cam0.release()
     cv2.destroyAllWindows()
