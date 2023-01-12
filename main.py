@@ -3,14 +3,13 @@ import torch
 import torch.nn as nn
 import os
 import time
+from utils.logger import *
 from utils.models import *
+import matplotlib.pyplot as plt
 import argparse
 import random
 import torch.backends.cudnn as cudnn
 import cv2
-import serial as ser
-import struct
-import re
 
 def label_2_velocity(label):
     cos_course = label[:,0]
@@ -21,16 +20,10 @@ def label_2_velocity(label):
         if sin_course[i] < 0:
             course[i] += np.pi
     course = 180 * course / np.pi
-    speed = label[:, 2] * (500 - 150) #+150
+    speed = label[:,2] * (500 - 150) #+150
     velocity = np.c_[course, speed]
     velocity = np.mean(velocity, axis=0)
     return velocity
-def course_2_hex(course):
-    input_s = 'f7 10 04 00 00 00 00 ff fd'
-    input_s = input_s.strip()
-    course = re.sub(r"(?<=\w)(?=(?:\w\w)+$)", " ", struct.pack('<f', course).hex())
-    input_s = input_s[0:9] + course + input_s[20:]
-    return input_s
 
 if __name__ == '__main__':
     ## Options -------------------
@@ -48,26 +41,25 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='testset', type=str, help='which dataset to test, testset or trainset')
 
     # Test model
-    parser.add_argument('--checkpoint', default='results/checkpoint_0901', type=str, metavar= \
+    parser.add_argument('--checkpoint', default='results/checkpoint_0702', type=str, metavar= \
         'PATH', help='path to save checkpoint (default: checkpoint)')
     parser.add_argument('--test_model', default='model_best.pth.tar', type=str, help='***.pth.tar')
     parser.add_argument('--model_arch', type=str, default='ConvLSTM', help='The model arch you selected')
     parser.add_argument('--seq_length', default=1, type=int, help='choose dataset path')
-    parser.add_argument('--cam', default=0, type=int, help='choose camera path')
-    parser.add_argument('--changex', default=0, type=int, help='change_x')
-    parser.add_argument('--changey', default=0, type=int, help='change_y')
 
     opt = parser.parse_args()
 
     # Set cameras
-    cam0 = cv2.VideoCapture(opt.cam)  # left camera
+    cam0 = cv2.VideoCapture(0)  # left camera
     cam0.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
     cam0.set(3, 1280)
     cam0.set(4, 720)
     cam0.set(cv2.CAP_PROP_BUFFERSIZE, 2)
 
-    change_x = opt.changex
-    change_y = opt.changey
+    change_x = 0
+    change_y = 0
+    # change_x = 15
+    # change_y = -25
 
     xmin = 590
     xmin += change_x
@@ -133,92 +125,79 @@ if __name__ == '__main__':
     motion_seq = [np.zeros((xmax-xmin, ymax-ymin),dtype=np.int64) for _x in range(seq_length)]
 
     pred_c_cls = []
+    gt_c_cls = []
     pred_s_cls = []
-    eval_path = opt.checkpoint + '/eval'
-    if not os.path.exists(eval_path):
-        os.makedirs(eval_path)
+    gt_s_cls = []
 
-    course = 0
-    speed = 0
-    time_num = 0
-    i = 0
 
-    # init cam
-    ret_val0, img = cam0.read()
-    se = ser.Serial("/dev/ttyTHS0", 115200)
-
-    time.sleep(5)
-
-    time_start1 = time.time()
     while True:
         time_start = time.time()
+
         # Read frames
         ret_val0, img = cam0.read()
         img_clip = img[ymin:ymax, xmin:xmax, :]
         img_gray = cv2.cvtColor(img_clip, cv2.COLOR_BGR2GRAY)
         motion_img = np.array(img_gray, dtype='uint8')
-        # cv2.imshow('image', img_gray)
+        cv2.imshow('image', img_gray)
+        key = cv2.waitKey(1)
 
-        # switch to test mode
-        model.eval()
-        with torch.no_grad():
-            # add img to motion_seq
-            del (motion_seq[0])
-            motion_seq.append(motion_img)
+        if key == ord('s'):
+            print("start...")
+            eval_flag = True
+            time_start = time.time()
+        elif key == ord('q'):
+            eval_flag = False
+            break
 
-            motion = []
-            for m in motion_seq:
-                motion.append(torch.from_numpy(m).float())
-            motion = torch.stack(motion)
-            motion = torch.autograd.Variable(motion)
-            motion = torch.unsqueeze(motion, dim=1)
+        if eval_flag:
+            # switch to test mode
+            model.eval()
+            with torch.no_grad():
+                # add img to motion_seq
+                del (motion_seq[0])
+                motion_seq.append(motion_img)
 
-            if opt.use_cuda:
-                motion = motion.cuda()
+                motion = []
+                for m in motion_seq:
+                    motion.append(torch.from_numpy(m).float())
+                motion = torch.stack(motion)
+                motion = torch.autograd.Variable(motion)
+                motion = torch.unsqueeze(motion, dim=1)
 
-            # model inference
-            outputs = model(motion)
+                if opt.use_cuda:
+                    motion = motion.cuda()
 
-            # compute course, velocity
-            pred_index = outputs.cpu().data.numpy()
-            pred_velocity = label_2_velocity(pred_index)
+                # model inference
+                outputs = model(motion)
 
-        course += pred_velocity[0]
-        speed += pred_velocity[1]
-        time_num += 1
-        time_end = time.time()
-        time_used = time_end - time_start
-        if time_used < 0.05:
-            time.sleep(0.05 - time_used)
-        # print(time_used, ':', pred_velocity)
+                # compute course, velocity
+                pred_index = outputs.cpu().data.numpy()
+                pred_velocity = label_2_velocity(pred_index)
+                # pred_velocity = np.mean(pred_velocity, axis=0)
 
-        if (time_num % 4) == 0:
-            course = course / 4
-            speed = speed / 4
-            pred_c_cls.append(course)
-            pred_s_cls.append(speed)
-            print(time.time()-time_start1, ':', course)
-            input_s = course_2_hex(course)
-            send_list = []
-            while input_s != '':
-                num = int(input_s[0:2], 16)
-                input_s = input_s[2:].strip()
-                send_list.append(num)
-            input_s = bytes(send_list)
-            try:
-                se.write(input_s)
-                # print(input_s)
-            except Exception:
-                pass
-            course = 0
-            speed = 0
-            time_start1 = time.time()
-        if time_num > 10000:
-            np.save(eval_path + '/course_error_' + str(i) + '.npy', pred_c_cls)
-            np.save(eval_path + '/speed_error_' + str(i) + '.npy', pred_s_cls)
-            print("save as ", '/course_error_' + str(i) )
-            time_num = 0
-            i += 1
+                time_end = time.time()
+                time_used = time_end - time_start
+                print(time_used, ':', pred_velocity)
+
+                pred_c_cls.append(pred_velocity[0])
+                pred_s_cls.append(pred_velocity[1])
+                time.sleep(0.05 - time_used)
+
+    eval_path = opt.checkpoint + '/eval'
+    if not os.path.exists(eval_path):
+        os.makedirs(eval_path)
+
+    np.save(eval_path + '/eval_course_error' + '.npy', pred_c_cls)
+    np.save(eval_path + '/eval_speed_error' + '.npy', pred_s_cls)
+
+    test_x = np.arange(0, len(pred_c_cls))
+    plt.plot(test_x, pred_c_cls, label='course')
+    plt.legend()
+    plt.savefig(eval_path + '/' + str('eval_course_error') + '.png')
+    plt.clf()
+    plt.plot(test_x, pred_s_cls, label='speed')
+    plt.legend()
+    plt.savefig(eval_path + '/' + str('eval_speed_error') + '.png')
 
     cam0.release()
     cv2.destroyAllWindows()
