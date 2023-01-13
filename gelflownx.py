@@ -8,6 +8,7 @@ import argparse
 import random
 import torch.backends.cudnn as cudnn
 import cv2
+from datetime import datetime
 import serial as ser
 import struct
 import re
@@ -54,8 +55,8 @@ if __name__ == '__main__':
     parser.add_argument('--model_arch', type=str, default='ConvLSTM', help='The model arch you selected')
     parser.add_argument('--seq_length', default=1, type=int, help='choose dataset path')
     parser.add_argument('--cam', default=0, type=int, help='choose camera path')
-    parser.add_argument('--changex', default=0, type=int, help='change_x')
-    parser.add_argument('--changey', default=0, type=int, help='change_y')
+    parser.add_argument('--changex', default=-20, type=int, help='change_x')
+    parser.add_argument('--changey', default=-10, type=int, help='change_y')
 
     opt = parser.parse_args()
 
@@ -134,7 +135,9 @@ if __name__ == '__main__':
 
     pred_c_cls = []
     pred_s_cls = []
-    eval_path = opt.checkpoint + '/eval'
+    now = datetime.now()
+    timestr = now.strftime("%m_%d_%H_%M")
+    eval_path = opt.checkpoint + '/eval_' + timestr
     if not os.path.exists(eval_path):
         os.makedirs(eval_path)
 
@@ -186,6 +189,7 @@ if __name__ == '__main__':
         course += pred_velocity[0]
         speed += pred_velocity[1]
         time_num += 1
+        cv2.imwrite(eval_path + '/' + str(time_num) + '.png', img_clip)
         time_end = time.time()
         time_used = time_end - time_start
         if time_used < 0.05:
@@ -218,7 +222,8 @@ if __name__ == '__main__':
             np.save(eval_path + '/speed_error_' + str(i) + '.npy', pred_s_cls)
             print("save as ", '/course_error_' + str(i) )
             time_num = 0
-            i += 1
+            # i += 1
+            break
 
     cam0.release()
     cv2.destroyAllWindows()

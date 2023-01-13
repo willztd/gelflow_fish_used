@@ -15,8 +15,8 @@ def take_photo():
     cam0.set(4, 720)
     cam0.set(cv2.CAP_PROP_BUFFERSIZE, 2)
 
-    change_x = 0
-    change_y = 0
+    change_x = -20
+    change_y = -10
 
     xmin = 590
     xmin += change_x
@@ -25,12 +25,17 @@ def take_photo():
     ymin += change_y
     ymax = ymin + 100
 
-    eval_flag = False
+    time.sleep(5)
 
-    ret_val0, img = cam0.read()
-    img_clip = img[ymin:ymax, xmin:xmax, :]
-    # cv2.imshow('image', img_clip)
-    cv2.imwrite('./photo.png', img_clip)
+    i = 0
+    while i < 5:
+        ret_val0, img = cam0.read()
+        img_clip = img[ymin:ymax, xmin:xmax, :]
+        # cv2.imshow('image', img_clip)
+        cv2.imwrite('./photo' + str(i) + '.png', img_clip)
+        print(i)
+        i += 1
+        time.sleep(1)
     print("done")
     cam0.release()
 
