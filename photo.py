@@ -94,13 +94,66 @@ def get_video(load_path):
     print("videos saved at:", video_dir)
     videowriter.release()
 
+def label_2_velocity(label):
+    from heapq import nsmallest
+    s = [0, np.pi]
+    cos_course = label[0]
+    sin_course = label[1]
+    cos_course = np.clip(cos_course, -1, 1)
+    sin_course = np.clip(sin_course, -1, 1)
+    course = np.arccos(cos_course)
+    if np.abs(sin_course) > 0.04:
+        if sin_course < 0:
+            course = 2 * np.pi - course
+    else:
+        course = np.array(nsmallest(1, s, key=lambda x: abs(x-course)))
+    course = 180 * course / np.pi
+    speed = label[2] * (500 - 150) + 150
+    velocity = np.c_[course, speed]
+    return velocity
+
+def show_cam(cam):
+    # Set cameras
+    cam0 = cv2.VideoCapture(cam)  # left camera
+    cam0.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+    cam0.set(3, 1280)
+    cam0.set(4, 720)
+    cam0.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+
+    change_x = -5
+    change_y = -7
+
+    xmin = 590
+    xmin += change_x
+    xmax = xmin + 100
+    ymin = 360
+    ymin += change_y
+    ymax = ymin + 100
+
+    while True:
+        time_start = time.time()
+        # Read frames
+        ret_val0, img = cam0.read()
+        img_clip = img[ymin:ymax, xmin:xmax, :]
+        img_gray = cv2.cvtColor(img_clip, cv2.COLOR_BGR2GRAY)
+        motion_img = np.array(img_gray, dtype='uint8')
+        cv2.imshow('image', img_gray)
+        key = cv2.waitKey(1)
+        if key == ord('q'):
+            break
+    cam0.release()
+    cv2.destroyAllWindows()
+
+
 if __name__ == '__main__':
     ## Options -------------------
     parser = argparse.ArgumentParser()
     parser.add_argument('--take_photo', dest='take_photo', action='store_true', help='take_photo')
     parser.add_argument('--plot_course', dest='plot_course', action='store_true', help='plot_course')
     parser.add_argument('--get_video', dest='get_video', action='store_true', help='get_video')
-    parser.add_argument('--eval_path', default=r'D:\will\Desktop\20230112\eval_01_12_21_16', type=str, metavar= 'PATH', help='eval path)')
+    parser.add_argument('--label_2_velocity', dest='label_2_velocity', action='store_true', help='label_2_velocity')
+    parser.add_argument('--show_cam', dest='show_cam', action='store_true', help='show_cam')
+    parser.add_argument('--eval_path', default=r'D:\will\Documents\ia.ac\04GelFlow\code\gelflow_fish_used\results\checkpoint_0901\eval_01_14_21_55', type=str, metavar= 'PATH', help='eval path)')
     opt = parser.parse_args()
 
     args = vars(opt)
@@ -115,6 +168,14 @@ if __name__ == '__main__':
         plot_course(opt.eval_path)
     if opt.get_video:
         get_video(opt.eval_path)
+    if opt.label_2_velocity:
+        course = 182.2
+        course = course * np.pi / 180
+        label_init = [np.cos(course), np.sin(course), 1]
+        label = label_2_velocity(label_init)
+        print(label)
+    if opt.show_cam:
+        show_cam(0)
 
     # take_photo()
     # plot_course('./results/checkpoint_0901/eval')

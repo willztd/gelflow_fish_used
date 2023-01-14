@@ -13,7 +13,7 @@ import serial as ser
 import struct
 import re
 
-def label_2_velocity(label):
+def label_2_velocity_bak(label):
     cos_course = label[:,0]
     sin_course = label[:,1]
     cos_course = np.clip(cos_course, -1, 1)
@@ -26,6 +26,26 @@ def label_2_velocity(label):
     velocity = np.c_[course, speed]
     velocity = np.mean(velocity, axis=0)
     return velocity
+def label_2_velocity(label):
+    from heapq import nsmallest
+    s = [0, np.pi]
+    cos_course = label[:,0]
+    sin_course = label[:,1]
+    cos_course = np.clip(cos_course, -1, 1)
+    sin_course = np.clip(sin_course, -1, 1)
+    course = np.arccos(cos_course)
+    for i in range(len(course)):
+        if np.abs(sin_course[i]) > 0.04:
+            if sin_course[i] < 0:
+                2 * np.pi - course
+        else:
+            course[i] = np.array(nsmallest(1, s, key=lambda x: abs(x-course[i])))
+    course = 180 * course / np.pi
+    speed = label[:, 2] * (500 - 150) + 150
+    velocity = np.c_[course, speed]
+    velocity = np.mean(velocity, axis=0)
+    return velocity
+
 def course_2_hex(course):
     input_s = 'f7 10 04 00 00 00 00 ff fd'
     input_s = input_s.strip()
