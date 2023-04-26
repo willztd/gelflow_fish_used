@@ -13,19 +13,19 @@ import serial as ser
 import struct
 import re
 
-def label_2_velocity_bak(label):
-    cos_course = label[:,0]
-    sin_course = label[:,1]
-    cos_course = np.clip(cos_course, -1, 1)
-    course = np.arccos(cos_course)
-    for i in range(len(course)):
-        if sin_course[i] < 0:
-            course[i] += np.pi
-    course = 180 * course / np.pi
-    speed = label[:, 2] * (500 - 150) #+150
-    velocity = np.c_[course, speed]
-    velocity = np.mean(velocity, axis=0)
-    return velocity
+# def label_2_velocity_bak(label):
+#     cos_course = label[:,0]
+#     sin_course = label[:,1]
+#     cos_course = np.clip(cos_course, -1, 1)
+#     course = np.arccos(cos_course)
+#     for i in range(len(course)):
+#         if sin_course[i] < 0:
+#             course[i] += np.pi
+#     course = 180 * course / np.pi
+#     speed = label[:, 2] * (500 - 150) #+150
+#     velocity = np.c_[course, speed]
+#     velocity = np.mean(velocity, axis=0)
+#     return velocity
 def label_2_velocity(label):
     from heapq import nsmallest
     s = [0, np.pi]
@@ -37,7 +37,7 @@ def label_2_velocity(label):
     for i in range(len(course)):
         if np.abs(sin_course[i]) > 0.04:
             if sin_course[i] < 0:
-                2 * np.pi - course
+                course[i] = 2 * np.pi - course[i]
         else:
             course[i] = np.array(nsmallest(1, s, key=lambda x: abs(x-course[i])))
     course = 180 * course / np.pi
@@ -69,11 +69,11 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='testset', type=str, help='which dataset to test, testset or trainset')
 
     # Test model
-    parser.add_argument('--checkpoint', default='results/checkpoint_0901', type=str, metavar= \
+    parser.add_argument('--checkpoint', default='results/checkpoint_follow', type=str, metavar= \
         'PATH', help='path to save checkpoint (default: checkpoint)')
     parser.add_argument('--test_model', default='model_best.pth.tar', type=str, help='***.pth.tar')
     parser.add_argument('--model_arch', type=str, default='ConvLSTM', help='The model arch you selected')
-    parser.add_argument('--seq_length', default=1, type=int, help='choose dataset path')
+    parser.add_argument('--seq_length', default=5, type=int, help='choose dataset path')
     parser.add_argument('--cam', default=0, type=int, help='choose camera path')
     parser.add_argument('--changex', default=-20, type=int, help='change_x')
     parser.add_argument('--changey', default=-10, type=int, help='change_y')
@@ -168,7 +168,7 @@ if __name__ == '__main__':
 
     # init cam
     ret_val0, img = cam0.read()
-    se = ser.Serial("/dev/ttyTHS0", 115200)
+    # se = ser.Serial("/dev/ttyTHS0", 115200)
 
     time.sleep(5)
 
@@ -180,7 +180,8 @@ if __name__ == '__main__':
         img_clip = img[ymin:ymax, xmin:xmax, :]
         img_gray = cv2.cvtColor(img_clip, cv2.COLOR_BGR2GRAY)
         motion_img = np.array(img_gray, dtype='uint8')
-        # cv2.imshow('image', img_gray)
+        cv2.imshow('image', img_gray)
+        cv2.waitKey(1)
 
         # switch to test mode
         model.eval()
@@ -209,7 +210,7 @@ if __name__ == '__main__':
         course += pred_velocity[0]
         speed += pred_velocity[1]
         time_num += 1
-        cv2.imwrite(eval_path + '/' + str(time_num) + '.png', img_clip)
+        # cv2.imwrite(eval_path + '/' + str(time_num) + '.png', img_clip)
         time_end = time.time()
         time_used = time_end - time_start
         if time_used < 0.05:
@@ -217,6 +218,8 @@ if __name__ == '__main__':
         # print(time_used, ':', pred_velocity)
 
         if (time_num % 4) == 0:
+            # cv2.imshow('image', img_gray)
+            # cv2.waitKey(1)
             course = course / 4
             speed = speed / 4
             pred_c_cls.append(course)
@@ -230,14 +233,14 @@ if __name__ == '__main__':
                 send_list.append(num)
             input_s = bytes(send_list)
             try:
-                se.write(input_s)
-                # print(input_s)
+                # se.write(input_s)
+                print(input_s)
             except Exception:
                 pass
             course = 0
             speed = 0
             time_start1 = time.time()
-        if time_num > 10000:
+        if time_num > 4000:
             np.save(eval_path + '/course_error_' + str(i) + '.npy', pred_c_cls)
             np.save(eval_path + '/speed_error_' + str(i) + '.npy', pred_s_cls)
             print("save as ", '/course_error_' + str(i) )

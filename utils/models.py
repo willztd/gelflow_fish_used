@@ -51,7 +51,8 @@ class ConvLSTM(nn.Module):
 
         self.LSTM = nn.LSTM(input_size=fc_1, hidden_size=lstm_hidden_size, num_layers=lstm_layers)
 
-        self.FC_1 = nn.Sequential(nn.Linear(lstm_hidden_size, fc_1), nn.Sigmoid())
+        # self.FC_1 = nn.Sequential(nn.Linear(lstm_hidden_size, fc_1), nn.Sigmoid())
+        self.FC_1 = nn.Sequential(nn.Linear(lstm_hidden_size, fc_1), nn.Tanh())
 
         self.FC_cls = nn.Sequential(nn.Linear(fc_1, cls_num))
 

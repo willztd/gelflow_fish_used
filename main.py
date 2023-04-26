@@ -24,7 +24,7 @@ def label_2_velocity(label):
     for i in range(len(course)):
         if np.abs(sin_course[i]) > 0.04:
             if sin_course[i] < 0:
-                2 * np.pi - course
+                course[i] = 2 * np.pi - course[i]
         else:
             course[i] = np.array(nsmallest(1, s, key=lambda x: abs(x-course[i])))
     course = 180 * course / np.pi
@@ -56,11 +56,11 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='testset', type=str, help='which dataset to test, testset or trainset')
 
     # Test model
-    parser.add_argument('--checkpoint', default='results/checkpoint_0901', type=str, metavar= \
+    parser.add_argument('--checkpoint', default='results/checkpoint_1010_tanh', type=str, metavar= \
         'PATH', help='path to save checkpoint (default: checkpoint)')
     parser.add_argument('--test_model', default='model_best.pth.tar', type=str, help='***.pth.tar')
     parser.add_argument('--model_arch', type=str, default='ConvLSTM', help='The model arch you selected')
-    parser.add_argument('--seq_length', default=1, type=int, help='choose dataset path')
+    parser.add_argument('--seq_length', default=5, type=int, help='choose dataset path')
     parser.add_argument('--cam', default=0, type=int, help='choose camera path')
     # parser.add_argument('--changex', default=-20, type=int, help='change_x')
     # parser.add_argument('--changey', default=-10, type=int, help='change_y')
@@ -169,7 +169,7 @@ if __name__ == '__main__':
         img_clip = img[ymin:ymax, xmin:xmax, :]
         img_gray = cv2.cvtColor(img_clip, cv2.COLOR_BGR2GRAY)
         motion_img = np.array(img_gray, dtype='uint8')
-        cv2.imshow('image', img_gray)
+        # cv2.imshow('image', img_gray)
 
         # switch to test mode
         model.eval()
@@ -210,7 +210,7 @@ if __name__ == '__main__':
             speed = speed / 4
             pred_c_cls.append(course)
             pred_s_cls.append(speed)
-            print(time.time()-time_start1, ':', course)
+            print(time.time()-time_start1, ':', course, speed)
             # input_s = course_2_hex(course)
             # send_list = []
             # while input_s != '':
@@ -226,7 +226,7 @@ if __name__ == '__main__':
             course = 0
             speed = 0
             time_start1 = time.time()
-        if time_num > 1000:
+        if time_num > 4000:
             np.save(eval_path + '/course_error_' + str(i) + '.npy', pred_c_cls)
             np.save(eval_path + '/speed_error_' + str(i) + '.npy', pred_s_cls)
             print("save as ", '/course_error_' + str(i) )
