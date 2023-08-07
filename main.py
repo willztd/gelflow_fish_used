@@ -4,12 +4,14 @@ import torch.nn as nn
 import os
 import time
 from utils.models import *
+from utils.MarkersDetect import *
+from utils.ImgDraw import *
 import argparse
 import random
 import torch.backends.cudnn as cudnn
 import cv2
 from datetime import datetime
-import serial as ser
+# import serial as ser
 import struct
 import re
 
@@ -56,16 +58,14 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='testset', type=str, help='which dataset to test, testset or trainset')
 
     # Test model
-    parser.add_argument('--checkpoint', default='results/checkpoint_1010_tanh', type=str, metavar= \
+    parser.add_argument('--checkpoint', default='results/checkpoint_follow', type=str, metavar= \
         'PATH', help='path to save checkpoint (default: checkpoint)')
     parser.add_argument('--test_model', default='model_best.pth.tar', type=str, help='***.pth.tar')
     parser.add_argument('--model_arch', type=str, default='ConvLSTM', help='The model arch you selected')
     parser.add_argument('--seq_length', default=5, type=int, help='choose dataset path')
     parser.add_argument('--cam', default=0, type=int, help='choose camera path')
-    # parser.add_argument('--changex', default=-20, type=int, help='change_x')
-    # parser.add_argument('--changey', default=-10, type=int, help='change_y')
-    parser.add_argument('--changex', default=-5, type=int, help='change_x')
-    parser.add_argument('--changey', default=-7, type=int, help='change_y')
+    parser.add_argument('--changex', default=-25, type=int, help='change_x')
+    parser.add_argument('--changey', default=-10, type=int, help='change_y')
 
     opt = parser.parse_args()
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     ymin += change_y
     ymax = ymin + 100
 
-    eval_flag = False
+    Init_flag = False
 
     # Random seed
     if opt.manualSeed is None:
@@ -150,18 +150,58 @@ if __name__ == '__main__':
     if not os.path.exists(eval_path):
         os.makedirs(eval_path)
 
-    course = 0
-    speed = 0
+    course_cv = np.zeros(5)
+    course_nn = np.zeros(5)
+    speed_nn = np.zeros(5)
     time_num = 0
     i = 0
 
-    # init cam
-    ret_val0, img = cam0.read()
+    # Init Serial
     # se = ser.Serial("/dev/ttyTHS0", 115200)
 
-    time.sleep(5)
+    # Init BLobs detection
+    print('Initializing...')
 
+    while not Init_flag:
+        ret_val0, img = cam0.read()
+
+        blobs_center, img_draw, gray = blobs_detect_black_update(img.copy(), thresh=40, xmin=0, xmax=1280, ymin=0,
+                                                               ymax=720)  # black
+
+        # cv2.imshow('image', img_draw)
+        # cv2.waitKey(1)
+
+        if len(blobs_center) == 1:
+            init_num = init_num + 1
+        else:
+            init_num = 0
+
+        time.sleep(0.2)
+        if init_num == 15:
+            blobs_init = blobs_center
+            Init_flag = True
+            blobs_init_x = np.array(blobs_init)[0, 0]
+            blobs_init_y = np.array(blobs_init)[0, 1]
+
+            xmin = blobs_init_x - 50
+            # xmin += change_x
+            xmax = xmin + 100
+            ymin = blobs_init_y - 50
+            # ymin += change_y
+            ymax = ymin + 100
+
+            # img_clip = img[ymin:ymax, xmin:xmax, :]
+            # blobs_init, _, _ = blobs_detect_black_update(img_clip.copy(), thresh=40, xmin=0, xmax=100, ymin=0, ymax=100)  # black
+
+            print('Initializing done!')
+            print(xmin, ymin)
+            time.sleep(2)
+
+    blobs_center_tmp = blobs_init
+
+    # work
     time_start1 = time.time()
+
     while True:
         time_start = time.time()
         # Read frames
@@ -195,44 +235,130 @@ if __name__ == '__main__':
             pred_index = outputs.cpu().data.numpy()
             pred_velocity = label_2_velocity(pred_index)
 
-        course += pred_velocity[0]
-        speed += pred_velocity[1]
-        time_num += 1
-        cv2.imwrite(eval_path + '/' + str(time_num) + '.png', img_clip)
+
+        blobs_center, img_clip_, _ = blobs_detect_black_update(img_clip.copy(), thresh=40, xmin=0, xmax=100, ymin=0,
+                                                           ymax=100, draw_flag=True)
+        # show 2D motion
+        if len(blobs_center) != 1:
+            blobs_center = blobs_center_tmp
+        diffL = 2 * np.array(blobs_center) - np.array([[50,50]])
+        imgL = draw_arrow_2(img_clip_, blobs_center, diffL.tolist())
+        cv2.imshow('2D motion', imgL)
+        # key = cv2.waitKey(1)
+
+        # get course
+        diff = np.array(blobs_center) - np.array([[50,50]])
+        delta_x = diff[0, 0]
+        delta_y = diff[0, 1]
+
+        if i < len(course_cv):
+            course_cv[i] = get_course(delta_x, delta_y)
+
+            course_nn[i] = pred_velocity[0]
+            speed_nn[i] = pred_velocity[1]
+            i = i + 1
+        else:
+            i = 0
+
+        course_cv_mean = np.mean(np.array(course_cv), axis=0)
+        course_nn_mean = np.mean(np.array(course_nn), axis=0)
+
+        print(time.time()-time_start, ' cv:', course_cv_mean, ' nn:', course_nn_mean)
+
+        blobs_center_tmp = blobs_center
+
         time_end = time.time()
         time_used = time_end - time_start
         if time_used < 0.05:
             time.sleep(0.05 - time_used)
-        # print(time_used, ':', pred_velocity)
 
-        if (time_num % 4) == 0:
-            course = course / 4
-            speed = speed / 4
-            pred_c_cls.append(course)
-            pred_s_cls.append(speed)
-            print(time.time()-time_start1, ':', course, speed)
-            # input_s = course_2_hex(course)
-            # send_list = []
-            # while input_s != '':
-            #     num = int(input_s[0:2], 16)
-            #     input_s = input_s[2:].strip()
-            #     send_list.append(num)
-            # input_s = bytes(send_list)
-            # try:
-            #     se.write(input_s)
-            #     # print(input_s)
-            # except Exception:
-            #     pass
-            course = 0
-            speed = 0
-            time_start1 = time.time()
-        if time_num > 4000:
-            np.save(eval_path + '/course_error_' + str(i) + '.npy', pred_c_cls)
-            np.save(eval_path + '/speed_error_' + str(i) + '.npy', pred_s_cls)
-            print("save as ", '/course_error_' + str(i) )
-            time_num = 0
-            # i += 1
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+
+
+    # # init cam
+    # ret_val0, img = cam0.read()
+    #
+    # time.sleep(5)
+    #
+    # # work
+    # time_start1 = time.time()
+    # while True:
+    #     time_start = time.time()
+    #     # Read frames
+    #     ret_val0, img = cam0.read()
+    #     img_clip = img[ymin:ymax, xmin:xmax, :]
+    #     img_gray = cv2.cvtColor(img_clip, cv2.COLOR_BGR2GRAY)
+    #     motion_img = np.array(img_gray, dtype='uint8')
+    #     cv2.imshow('image', img_gray)
+    #     cv2.waitKey(1)
+    #
+    #     # switch to test mode
+    #     model.eval()
+    #     with torch.no_grad():
+    #         # add img to motion_seq
+    #         del (motion_seq[0])
+    #         motion_seq.append(motion_img)
+    #
+    #         motion = []
+    #         for m in motion_seq:
+    #             motion.append(torch.from_numpy(m).float())
+    #         motion = torch.stack(motion)
+    #         motion = torch.autograd.Variable(motion)
+    #         motion = torch.unsqueeze(motion, dim=1)
+    #
+    #         if opt.use_cuda:
+    #             motion = motion.cuda()
+    #
+    #         # model inference
+    #         outputs = model(motion)
+    #
+    #         # compute course, velocity
+    #         pred_index = outputs.cpu().data.numpy()
+    #         pred_velocity = label_2_velocity(pred_index)
+    #
+    #     course += pred_velocity[0]
+    #     speed += pred_velocity[1]
+    #     time_num += 1
+    #     cv2.imwrite(eval_path + '/' + str(time_num) + '.png', img_clip)
+    #     time_end = time.time()
+    #     time_used = time_end - time_start
+    #     if time_used < 0.05:
+    #         time.sleep(0.05 - time_used)
+    #     # print(time_used, ':', pred_velocity)
+    #
+    #     if (time_num % 4) == 0:
+    #         # cv2.imshow('image', img_gray)
+    #         # cv2.waitKey(1)
+    #         course = course / 4
+    #         speed = speed / 4
+    #         pred_c_cls.append(course)
+    #         pred_s_cls.append(speed)
+    #         print(time.time()-time_start1, ':', course)
+    #         input_s = course_2_hex(course)
+    #         send_list = []
+    #         while input_s != '':
+    #             num = int(input_s[0:2], 16)
+    #             input_s = input_s[2:].strip()
+    #             send_list.append(num)
+    #         input_s = bytes(send_list)
+    #         try:
+    #             # se.write(input_s)
+    #             # print(input_s)
+    #             print('\n')
+    #         except Exception:
+    #             pass
+    #         course = 0
+    #         speed = 0
+    #         time_start1 = time.time()
+    #     if time_num > 6000:
+    #         np.save(eval_path + '/course_error_' + str(i) + '.npy', pred_c_cls)
+    #         np.save(eval_path + '/speed_error_' + str(i) + '.npy', pred_s_cls)
+    #         print("save as ", '/course_error_' + str(i) )
+    #         time_num = 0
+    #         # i += 1
+    #         break
 
     cam0.release()
     cv2.destroyAllWindows()

@@ -9,7 +9,7 @@ import random
 import torch.backends.cudnn as cudnn
 import cv2
 from datetime import datetime
-import serial as ser
+# import serial as ser
 import struct
 import re
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_arch', type=str, default='ConvLSTM', help='The model arch you selected')
     parser.add_argument('--seq_length', default=5, type=int, help='choose dataset path')
     parser.add_argument('--cam', default=0, type=int, help='choose camera path')
-    parser.add_argument('--changex', default=-20, type=int, help='change_x')
+    parser.add_argument('--changex', default=-25, type=int, help='change_x')
     parser.add_argument('--changey', default=-10, type=int, help='change_y')
 
     opt = parser.parse_args()
@@ -180,8 +180,8 @@ if __name__ == '__main__':
         img_clip = img[ymin:ymax, xmin:xmax, :]
         img_gray = cv2.cvtColor(img_clip, cv2.COLOR_BGR2GRAY)
         motion_img = np.array(img_gray, dtype='uint8')
-        cv2.imshow('image', img_gray)
-        cv2.waitKey(1)
+        # cv2.imshow('image', img_gray)
+        # cv2.waitKey(1)
 
         # switch to test mode
         model.eval()
@@ -210,7 +210,7 @@ if __name__ == '__main__':
         course += pred_velocity[0]
         speed += pred_velocity[1]
         time_num += 1
-        # cv2.imwrite(eval_path + '/' + str(time_num) + '.png', img_clip)
+        cv2.imwrite(eval_path + '/' + str(time_num) + '.png', img_clip)
         time_end = time.time()
         time_used = time_end - time_start
         if time_used < 0.05:
@@ -234,13 +234,14 @@ if __name__ == '__main__':
             input_s = bytes(send_list)
             try:
                 # se.write(input_s)
-                print(input_s)
+                # print(input_s)
+                print('\n')
             except Exception:
                 pass
             course = 0
             speed = 0
             time_start1 = time.time()
-        if time_num > 4000:
+        if time_num > 6000:
             np.save(eval_path + '/course_error_' + str(i) + '.npy', pred_c_cls)
             np.save(eval_path + '/speed_error_' + str(i) + '.npy', pred_s_cls)
             print("save as ", '/course_error_' + str(i) )
